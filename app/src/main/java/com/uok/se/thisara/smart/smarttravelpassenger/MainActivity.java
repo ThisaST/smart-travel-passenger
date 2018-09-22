@@ -1,6 +1,7 @@
 package com.uok.se.thisara.smart.smarttravelpassenger;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Color;
@@ -197,6 +198,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
 
+        mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
+            @Override
+            public void onInfoWindowClick(Marker marker) {
+
+                Intent intent = new Intent(getApplicationContext(), BusLocationActivity.class);
+                startActivity(intent);
+            }
+        });
         // Prompt the user for permission.
         getLocationPermission();
 
