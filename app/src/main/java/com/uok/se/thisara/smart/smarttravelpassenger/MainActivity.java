@@ -16,10 +16,17 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.Toolbar;
 
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.common.GooglePlayServicesRepairableException;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.GeoDataClient;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -30,6 +37,7 @@ import com.google.android.gms.location.places.PlaceLikelihood;
 import com.google.android.gms.location.places.PlaceLikelihoodBufferResponse;
 import com.google.android.gms.location.places.PlaceTypes;
 import com.google.android.gms.location.places.Places;
+import com.google.android.gms.location.places.ui.PlaceAutocomplete;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -40,12 +48,16 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.uok.se.thisara.smart.smarttravelpassenger.ui.main.MainFragment;
+import com.uok.se.thisara.smart.smarttravelpassenger.viewmodel.MainViewModel;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
@@ -83,6 +95,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private String[] mLikelyPlaceAttributions;
     private LatLng[] mLikelyPlaceLatLngs;
 
+    private static final int REQUEST_CODE_AUTOCOMPLETE = 1;
+
+    private View rootView;
+    private MainViewModel mainViewModel;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -98,7 +115,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Construct a GeoDataClient.
         mGeoDataClient = Places.getGeoDataClient(this);
 
-
         // Construct a PlaceDetectionClient.
         mPlaceDetectionClient = Places.getPlaceDetectionClient(this);
 
@@ -109,10 +125,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         /*Toolbar toolbar = findViewById(R.id.home_toolbar);
         toolbar.setBackgroundColor(Color.parseColor("#80000000"));*/
 
+        Button destinationSelector = findViewById(R.id.destinationButton);
+
+        destinationSelector.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                openAutocompleteActivity();
+            }
+        });
+
         // Build the map.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        rootView = getWindow().getDecorView().getRootView();
+
     }
 
     /**
@@ -237,7 +265,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
                                     new LatLng(mLastKnownLocation.getLatitude(),
                                             mLastKnownLocation.getLongitude()), DEFAULT_ZOOM));
-                            createMarkerInMap(6.971810, 79.916798, "University of Kelaniya Bus stop", "", R.drawable.bus_stop_marker);
+                            createMarkerInMap(6.971810, 79.916798, "University of Kelaniya Bus stop", "", R.drawable.bus_view_left_front);
 
                         } else {
                             Log.d(TAG, "Current location is null. Using defaults.");
@@ -245,6 +273,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             mMap.moveCamera(CameraUpdateFactory
                                     .newLatLngZoom(mDefaultLocation, DEFAULT_ZOOM));
                             mMap.getUiSettings().setMyLocationButtonEnabled(false);
+
+
+                            if (mMap.getUiSettings().isMyLocationButtonEnabled()) {
+
+                                changeThePlaceOfLocationButton(rootView);
+                            }
                         }
                     }
                 });
@@ -428,6 +462,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (mLocationPermissionGranted) {
                 mMap.setMyLocationEnabled(true);
                 mMap.getUiSettings().setMyLocationButtonEnabled(true);
+
+                changeThePlaceOfLocationButton(rootView);
             } else {
                 mMap.setMyLocationEnabled(false);
                 mMap.getUiSettings().setMyLocationButtonEnabled(false);
@@ -439,6 +475,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+
+    /**
+     * Create markers in the google map.
+     * @param latitude The latitude of the location that marker should add.
+     * @param longitude The longitude of the location that marker should add.
+     * @param title The title of the location
+     * @param snippet
+     * @param iconResID The icon of the marker.
+     * @return Marker.
+     */
     private Marker createMarkerInMap(double latitude, double longitude, String title, String snippet, int iconResID) {
 
         return mMap.addMarker(new MarkerOptions()
@@ -447,5 +493,116 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .title(title)
                 .snippet(snippet)
                 .icon(BitmapDescriptorFactory.fromResource(iconResID)));
+    }
+
+
+    /**
+     * Change the location of the LocationButton in the map view
+     * @param mMapView the currently opened view.
+     */
+    public void changeThePlaceOfLocationButton(View mMapView) {
+
+        View locationButton = ((View) mMapView.findViewById(Integer.parseInt("1")).getParent()).findViewById(Integer.parseInt("2"));
+        RelativeLayout.LayoutParams rlp = (RelativeLayout.LayoutParams) locationButton.getLayoutParams();
+        // position on right bottom
+        rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+        rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, RelativeLayout.TRUE);
+        rlp.setMargins(400, 1450, 60, 0);
+    }
+
+
+    //for place auto complete
+
+    private void openAutocompleteActivity() {
+        try {
+            // The autocomplete activity requires Google Play Services to be available. The intent
+            // builder checks this and throws an exception if it is not the case.
+            Intent intent = new PlaceAutocomplete.IntentBuilder(PlaceAutocomplete.MODE_FULLSCREEN)
+                    .build(this);
+            startActivityForResult(intent, REQUEST_CODE_AUTOCOMPLETE);
+        } catch (GooglePlayServicesRepairableException e) {
+            // Indicates that Google Play Services is either not installed or not up to date. Prompt
+            // the user to correct the issue.
+            GoogleApiAvailability.getInstance().getErrorDialog(this, e.getConnectionStatusCode(),
+                    0 /* requestCode */).show();
+        } catch (GooglePlayServicesNotAvailableException e) {
+            // Indicates that Google Play Services is not available and the problem is not easily
+            // resolvable.
+            String message = "Google Play Services is not available: " +
+                    GoogleApiAvailability.getInstance().getErrorString(e.errorCode);
+
+            Log.e(TAG, message);
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CODE_AUTOCOMPLETE) {
+            if (resultCode == RESULT_OK) {
+                // Get the user's selected place from the Intent.
+                Place place = PlaceAutocomplete.getPlace(this, data);
+                Log.i(TAG, "Place Selected: " + place.getName());
+
+                mMap.clear();
+                //place a marker in the selected location
+                Marker marker = createMarkerInMap(place.getLatLng().latitude, place.getLatLng().longitude, place.getName().toString(),"", R.drawable.bus_stop_marker_white);
+
+                drawPathOnTheMap(place.getLatLng());
+
+                // Display attributions if required.
+            } else if (resultCode == PlaceAutocomplete.RESULT_ERROR) {
+                Status status = PlaceAutocomplete.getStatus(this, data);
+                Log.e(TAG, "Error: Status = " + status.toString());
+            } else if (resultCode == RESULT_CANCELED) {
+                // Indicates that the activity closed before a selection was made. For example if
+                // the user pressed the back button.
+            }
+        }
+
+    }
+
+    public void setStartingPoint() {
+
+
+    }
+
+    public void setDestinationPoint() {
+
+
+    }
+
+    private void drawPathOnTheMap(LatLng latLng) {
+
+        mainViewModel = new MainViewModel();
+        List<LatLng> polyLineLocations = mainViewModel.getDataFromFirebase("/pinpoints/138/location");
+        LatLng pinPoint = null;
+        for (LatLng location : polyLineLocations) {
+
+            float distance = getDistanceInMiles(location, latLng);
+            if (distance < 0.2) {
+                pinPoint = location;
+            }
+        }
+
+        PolylineOptions options = new PolylineOptions().width(10).color(Color.BLUE).geodesic(true);
+        for (int z = 0; z < polyLineLocations.size(); z++) {
+            LatLng point = polyLineLocations.get(z);
+            options.add(point);
+        }
+
+        Polyline busRoute = mMap.addPolyline(options);
+    }
+
+    public float getDistanceInMiles(LatLng routePoint, LatLng destination) {
+        double lat1 = routePoint.latitude/ 1e6;
+        double lng1 = routePoint.longitude/ 1e6;
+        double lat2 = destination.latitude / 1e6;
+        double lng2 = destination.longitude / 1e6;
+        float [] dist = new float[1];
+        Location.distanceBetween(lat1, lng1, lat2, lng2, dist);
+        return dist[0];
     }
 }

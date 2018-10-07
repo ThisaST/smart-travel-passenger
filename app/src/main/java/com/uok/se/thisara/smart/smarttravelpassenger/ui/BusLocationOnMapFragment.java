@@ -73,4 +73,22 @@ public class BusLocationOnMapFragment extends Fragment implements OnMapReadyCall
             Log.e(TAG, "Can't find style. Error: ", e);
         }
     }
+
+    public void setMarkersOfBusses() {
+
+
+    }
+
+    public void getBusLocation() {
+
+
+    }
+
+    Runnable updateLocation = new Runnable() {
+        @Override
+        public void run() {
+
+
+        }
+    };
 }
