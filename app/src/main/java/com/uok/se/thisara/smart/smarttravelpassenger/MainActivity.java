@@ -1,5 +1,6 @@
 package com.uok.se.thisara.smart.smarttravelpassenger;
 
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -111,6 +112,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             mLastKnownLocation = savedInstanceState.getParcelable(KEY_LOCATION);
             mCameraPosition = savedInstanceState.getParcelable(KEY_CAMERA_POSITION);
         }
+
+        //create the viewmodel
+        mainViewModel = ViewModelProviders.of(this).get(MainViewModel.class);
 
         // Construct a GeoDataClient.
         mGeoDataClient = Places.getGeoDataClient(this);
@@ -266,6 +270,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     new LatLng(mLastKnownLocation.getLatitude(),
                                             mLastKnownLocation.getLongitude()), DEFAULT_ZOOM));
                             createMarkerInMap(6.971810, 79.916798, "University of Kelaniya Bus stop", "", R.drawable.bus_view_left_front);
+                            createMarkerInMap(6.973107, 79.918971, "Route : 138", "", R.drawable.bus_view_left_front);
+                            createMarkerInMap(6.975057, 79.923877, "Route : 138", "", R.drawable.bus_view_left_front);
+                            createMarkerInMap(6.977150, 79.926193, "Route : 138", "", R.drawable.bus_view_left_front);
 
                         } else {
                             Log.d(TAG, "Current location is null. Using defaults.");
@@ -576,7 +583,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void drawPathOnTheMap(LatLng latLng) {
 
-        mainViewModel = new MainViewModel();
         List<LatLng> polyLineLocations = mainViewModel.getDataFromFirebase("/pinpoints/138/location");
         LatLng pinPoint = null;
         for (LatLng location : polyLineLocations) {

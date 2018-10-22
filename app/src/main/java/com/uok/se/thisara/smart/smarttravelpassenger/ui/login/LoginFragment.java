@@ -125,6 +125,9 @@ public class LoginFragment extends Fragment {
                 startActivity(intent);
             }
         });
+
+
+
     }
 
     private void useFacebookLogIn() {

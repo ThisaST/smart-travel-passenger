@@ -22,13 +22,14 @@ public class MainViewModel extends ViewModel {
     public List<LatLng> getDataFromFirebase(String path) {
 
 
-        DatabaseReference firebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
+        DatabaseReference firebaseDatabaseReference = FirebaseDatabase.getInstance().getReference(path);
 
-        firebaseDatabaseReference.child(path).addListenerForSingleValueEvent(new ValueEventListener() {
+        firebaseDatabaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
 
-                Map<String, Object> objectMap = (HashMap<String, Object>)dataSnapshot.getValue();
+                routeLocation = (ArrayList<LatLng>) dataSnapshot.getValue();
+                /*Map<String, Object> objectMap = (HashMap<String, Object>)dataSnapshot.getValue();
                 for (Object obj : objectMap.values()) {
                     if (obj instanceof Map) {
                         Map<String, Object> mapObj = (Map<String, Object>) obj;
@@ -36,7 +37,7 @@ public class MainViewModel extends ViewModel {
                                 Double.valueOf(((Map<String, Object>) obj).get("latitude").toString()));
                         routeLocation.add(locations);
                     }
-                }
+                }*/
 
                 /*for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
                     Map<String, String> map = (Map) postSnapshot.getValue();
@@ -57,5 +58,10 @@ public class MainViewModel extends ViewModel {
 
         return routeLocation;
     }
+
+    /*public List<LatLng> getDataFromService() {
+
+
+    }*/
 
 }
