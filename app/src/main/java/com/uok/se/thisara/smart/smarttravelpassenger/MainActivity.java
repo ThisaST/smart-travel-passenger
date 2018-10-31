@@ -46,6 +46,7 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -53,10 +54,18 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.uok.se.thisara.smart.smarttravelpassenger.entities.BusLocation;
 import com.uok.se.thisara.smart.smarttravelpassenger.ui.main.MainFragment;
 import com.uok.se.thisara.smart.smarttravelpassenger.viewmodel.MainViewModel;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -97,6 +106,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private LatLng[] mLikelyPlaceLatLngs;
 
     private static final int REQUEST_CODE_AUTOCOMPLETE = 1;
+
+    private HashMap<String, Marker> mMarkers = new HashMap<>();
 
     private View rootView;
     private MainViewModel mainViewModel;
@@ -270,9 +281,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     new LatLng(mLastKnownLocation.getLatitude(),
                                             mLastKnownLocation.getLongitude()), DEFAULT_ZOOM));
                             createMarkerInMap(6.971810, 79.916798, "University of Kelaniya Bus stop", "", R.drawable.bus_view_left_front);
-                            createMarkerInMap(6.973107, 79.918971, "Route : 138", "", R.drawable.bus_view_left_front);
-                            createMarkerInMap(6.975057, 79.923877, "Route : 138", "", R.drawable.bus_view_left_front);
-                            createMarkerInMap(6.977150, 79.926193, "Route : 138", "", R.drawable.bus_view_left_front);
+                            //createMarkerInMap(6.973107, 79.918971, "Route : 138", "", R.drawable.bus_view_left_front);
+                            //createMarkerInMap(6.975057, 79.923877, "Route : 138", "", R.drawable.bus_view_left_front);
+                            //createMarkerInMap(6.977150, 79.926193, "Route : 138", "", R.drawable.bus_view_left_front);
 
                         } else {
                             Log.d(TAG, "Current location is null. Using defaults.");
@@ -559,6 +570,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 drawPathOnTheMap(place.getLatLng());
 
+
                 // Display attributions if required.
             } else if (resultCode == PlaceAutocomplete.RESULT_ERROR) {
                 Status status = PlaceAutocomplete.getStatus(this, data);
@@ -583,23 +595,48 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void drawPathOnTheMap(LatLng latLng) {
 
-        List<LatLng> polyLineLocations = mainViewModel.getDataFromFirebase("/pinpoints/138/location");
+
+        mainViewModel.getDataFromSerivce("/pinpoints/138/location");
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        List<BusLocation> polyLineLocations = mainViewModel.getPinPointLocationData();
+
+        List<LatLng> pointsInLatAndLang = new ArrayList<>();
+
+        for (Iterator<BusLocation> i = polyLineLocations.iterator(); i.hasNext();) {
+
+            pointsInLatAndLang.add(new LatLng(polyLineLocations.get(i.hashCode()).getLatitude(), polyLineLocations.get(i.hashCode()).getLongitude()) );
+        }
+
         LatLng pinPoint = null;
-        for (LatLng location : polyLineLocations) {
 
-            float distance = getDistanceInMiles(location, latLng);
-            if (distance < 0.2) {
-                pinPoint = location;
+        try {
+            for (LatLng location : pointsInLatAndLang) {
+
+                float distance = getDistanceInMiles(location, latLng);
+                if (distance < 0.2) {
+                    pinPoint = location;
+                }
             }
+
+            Log.d("Point", pinPoint.toString());
+
+            PolylineOptions options = new PolylineOptions().width(10).color(Color.BLUE).geodesic(true);
+            for (int z = 0; z < polyLineLocations.size(); z++) {
+                //LatLng point = polyLineLocations.get(z);
+                //options.add(point);
+            }
+
+            Polyline busRoute = mMap.addPolyline(options);
+        }catch (Exception e) {
+            e.printStackTrace();
         }
 
-        PolylineOptions options = new PolylineOptions().width(10).color(Color.BLUE).geodesic(true);
-        for (int z = 0; z < polyLineLocations.size(); z++) {
-            LatLng point = polyLineLocations.get(z);
-            options.add(point);
-        }
-
-        Polyline busRoute = mMap.addPolyline(options);
     }
 
     public float getDistanceInMiles(LatLng routePoint, LatLng destination) {
@@ -610,5 +647,71 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         float [] dist = new float[1];
         Location.distanceBetween(lat1, lng1, lat2, lng2, dist);
         return dist[0];
+    }
+
+    public void showBusLocations(final String busRoute) {
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                getBusLocationData(busRoute);
+            }
+        }).start();
+    }
+
+    private void getBusLocationData(String busRoute) {
+
+        DatabaseReference fireDatabaseReference = FirebaseDatabase.getInstance().getReference();
+
+        fireDatabaseReference.addChildEventListener(new ChildEventListener() {
+            @Override
+            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+
+
+            }
+
+            @Override
+            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+            }
+
+            @Override
+            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+    private void setMarker(DataSnapshot dataSnapshot) {
+        // When a location update is received, put or update
+        // its value in mMarkers, which contains all the markers
+        // for locations received, so that we can build the
+        // boundaries required to show them all on the map at once
+        String key = dataSnapshot.getKey();
+        HashMap<String, Object> value = (HashMap<String, Object>) dataSnapshot.getValue();
+        double lat = Double.parseDouble(value.get("latitude").toString());
+        double lng = Double.parseDouble(value.get("longitude").toString());
+        LatLng location = new LatLng(lat, lng);
+        if (!mMarkers.containsKey(key)) {
+            mMarkers.put(key, mMap.addMarker(new MarkerOptions().title(key).position(location)));
+        } else {
+            mMarkers.get(key).setPosition(location);
+        }
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        for (Marker marker : mMarkers.values()) {
+            builder.include(marker.getPosition());
+        }
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 300));
     }
 }
