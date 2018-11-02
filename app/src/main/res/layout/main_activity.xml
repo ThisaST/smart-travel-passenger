@@ -32,6 +32,20 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="97dp"
+            android:layout_height="99dp"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginStart="156dp"
+            android:layout_marginTop="251dp"
+            android:layout_marginEnd="158dp"
+            android:layout_marginBottom="254dp"
+            android:visibility="invisible" />
 
 
     </RelativeLayout>

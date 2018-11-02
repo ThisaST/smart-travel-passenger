@@ -2,10 +2,12 @@ package com.uok.se.thisara.smart.smarttravelpassenger.viewmodel;
 
 import android.arch.lifecycle.ViewModel;
 import android.location.Location;
+import android.os.Handler;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.model.LatLng;
+import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -29,6 +31,7 @@ import retrofit2.Response;
 public class MainViewModel extends ViewModel {
 
     List<BusLocation> routeLocation = new ArrayList<>();
+    List<LatLng> busRouteLocations = new ArrayList<>();
 
     public void getDataFromSerivce(String path) {
 
@@ -48,47 +51,13 @@ public class MainViewModel extends ViewModel {
                 @Override
                 public void onFailure(Call<List<BusLocation>> call, Throwable t) {
 
+                    Log.e("retrofit error", t.toString());
                 }
             });
         }catch (Exception e) {
             Log.e("error", e.toString());
         }
 
-
-
-        DatabaseReference firebaseDatabaseReference = FirebaseDatabase.getInstance().getReference(path);
-
-        /*firebaseDatabaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-
-                //routeLocation = (ArrayList<LatLng>) dataSnapshot.getValue();
-                *//**//*Map<String, Object> objectMap = (HashMap<String, Object>)dataSnapshot.getValue();
-                for (Object obj : objectMap.values()) {
-                    if (obj instanceof Map) {
-                        Map<String, Object> mapObj = (Map<String, Object>) obj;
-                        LatLng locations = new LatLng(Double.valueOf(((Map<String, Object>) obj).get("latitude").toString()),
-                                Double.valueOf(((Map<String, Object>) obj).get("latitude").toString()));
-                        routeLocation.add(locations);
-                    }
-                }*//**//*
-
-                *//**//*for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
-                    Map<String, String> map = (Map) postSnapshot.getValue();
-                    if (map != null) {
-                        double latitude = Double.parseDouble(map.get("latitude"));
-                        double longitude = Double.parseDouble(map.get("longitude"));
-
-                        routeLocation.add(new Location().setLatitude());
-                    }
-                }*//*
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-
-            }
-        });*/
     }
 
     public void getPinnedLocationData(Response<List<BusLocation>> locationsResponse, Call<List<BusLocation>> call) {
@@ -104,4 +73,44 @@ public class MainViewModel extends ViewModel {
     }
 
 
+    public void getDataFromFirebase(String dbPath) {
+
+        DatabaseReference firebaseDatabaseReference = FirebaseDatabase.getInstance().getReference(dbPath);
+
+        firebaseDatabaseReference.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+
+                setBusRouteLocations(dataSnapshot);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+    private void setBusRouteLocations(DataSnapshot dataSnapshot) {
+
+        List<BusLocation> busLocationList = new ArrayList<>();
+        for (DataSnapshot locationData : dataSnapshot.getChildren()) {
+
+
+            BusLocation busLocation = locationData.getValue(BusLocation.class);
+            busLocationList.add(busLocation);
+        }
+
+        sendDataToTheView(busLocationList);
+    }
+
+    private void sendDataToTheView(List<BusLocation> busLocationList) {
+
+        routeLocation = busLocationList;
+    }
+
+    public List<BusLocation> getRouteLocation() {
+
+        return routeLocation;
+    }
 }

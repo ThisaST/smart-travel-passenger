@@ -11,10 +11,10 @@ public class BusLocation {
     private String locationName;
 
     @SerializedName("latitude")
-    private double latitude;
+    private String latitude;
 
     @SerializedName("longitude")
-    private double longitude;
+    private String longitude;
 
     @SerializedName("route_id")
     private Long route_id;
@@ -22,19 +22,21 @@ public class BusLocation {
     public BusLocation() {
     }
 
-    public BusLocation(String locationName, double latitude, double longitude) {
+
+    public BusLocation(String locationName, String latitude, String longitude) {
         this.locationName = locationName;
         this.latitude = latitude;
         this.longitude = longitude;
     }
 
-    public BusLocation(Long id, String locationName, double latitude, double longitude, Long route_id) {
+
+    /*public BusLocation(Long id, String locationName, double latitude, double longitude, Long route_id) {
         this.id = id;
         this.locationName = locationName;
         this.latitude = latitude;
         this.longitude = longitude;
         this.route_id = route_id;
-    }
+    }*/
 
     public String getLocationName() {
         return locationName;
@@ -44,19 +46,19 @@ public class BusLocation {
         this.locationName = locationName;
     }
 
-    public double getLatitude() {
+    public String getLatitude() {
         return latitude;
     }
 
-    public void setLatitude(double latitude) {
+    public void setLatitude(String latitude) {
         this.latitude = latitude;
     }
 
-    public double getLongitude() {
+    public String getLongitude() {
         return longitude;
     }
 
-    public void setLongitude(double longitude) {
+    public void setLongitude(String longitude) {
         this.longitude = longitude;
     }
 

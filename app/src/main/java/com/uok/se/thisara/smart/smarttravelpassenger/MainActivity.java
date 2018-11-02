@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.location.Location;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -19,6 +20,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -112,11 +114,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private View rootView;
     private MainViewModel mainViewModel;
 
+    private ProgressBar mProgressBar;
+
+    List<BusLocation> busRouteLocationList;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_activity);
-
 
         // Retrieve location and camera position from saved instance state.
         if (savedInstanceState != null) {
@@ -127,6 +132,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         //create the viewmodel
         mainViewModel = ViewModelProviders.of(this).get(MainViewModel.class);
 
+        mainViewModel.getDataFromFirebase("pinpoints/138/location");
         // Construct a GeoDataClient.
         mGeoDataClient = Places.getGeoDataClient(this);
 
@@ -281,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     new LatLng(mLastKnownLocation.getLatitude(),
                                             mLastKnownLocation.getLongitude()), DEFAULT_ZOOM));
                             createMarkerInMap(6.971810, 79.916798, "University of Kelaniya Bus stop", "", R.drawable.bus_view_left_front);
-                            //createMarkerInMap(6.973107, 79.918971, "Route : 138", "", R.drawable.bus_view_left_front);
+                            createMarkerInMap(6.973107, 79.918971, "Route : 138", "", R.drawable.bus_view_left_front);
                             //createMarkerInMap(6.975057, 79.923877, "Route : 138", "", R.drawable.bus_view_left_front);
                             //createMarkerInMap(6.977150, 79.926193, "Route : 138", "", R.drawable.bus_view_left_front);
 
@@ -568,8 +574,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 //place a marker in the selected location
                 Marker marker = createMarkerInMap(place.getLatLng().latitude, place.getLatLng().longitude, place.getName().toString(),"", R.drawable.bus_stop_marker_white);
 
-                drawPathOnTheMap(place.getLatLng());
+                List<BusLocation> busRouteData = drawPathOnTheMap(place.getLatLng());
 
+                drawPath(busRouteData, place.getLatLng());
 
                 // Display attributions if required.
             } else if (resultCode == PlaceAutocomplete.RESULT_ERROR) {
@@ -593,52 +600,74 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    private void drawPathOnTheMap(LatLng latLng) {
+    private List<BusLocation> drawPathOnTheMap(LatLng latLng) {
 
+        //mainViewModel.getDataFromSerivce("/pinpoints/138/location");
 
-        mainViewModel.getDataFromSerivce("/pinpoints/138/location");
+        mProgressBar = findViewById(R.id.progressBar);
+        mProgressBar.setVisibility(View.VISIBLE);
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mProgressBar.setProgress(0);
+            }
+        }, 5000);
 
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        mProgressBar.setVisibility(View.GONE);
 
-        List<BusLocation> polyLineLocations = mainViewModel.getPinPointLocationData();
+        List<BusLocation> busLocationList = mainViewModel.getRouteLocation();
+
+        Log.d("List size", Integer.toString(busLocationList.size()));
+
+        /*getBusLocationData("locations/0001");*/
+
+        return busLocationList;
+    }
+
+    public void drawPath(List<BusLocation> busLocations, LatLng latLng) {
 
         List<LatLng> pointsInLatAndLang = new ArrayList<>();
 
-        for (Iterator<BusLocation> i = polyLineLocations.iterator(); i.hasNext();) {
+        for (BusLocation location : busLocations) {
 
-            pointsInLatAndLang.add(new LatLng(polyLineLocations.get(i.hashCode()).getLatitude(), polyLineLocations.get(i.hashCode()).getLongitude()) );
+            pointsInLatAndLang.add(new LatLng(Double.parseDouble(location.getLatitude()),
+                    Double.parseDouble(location.getLongitude())));
         }
 
         LatLng pinPoint = null;
 
+        float minDistance = Float.MAX_VALUE;
         try {
             for (LatLng location : pointsInLatAndLang) {
-
                 float distance = getDistanceInMiles(location, latLng);
-                if (distance < 0.2) {
+                if (distance < minDistance) {
+                    minDistance = distance;
                     pinPoint = location;
                 }
             }
 
             Log.d("Point", pinPoint.toString());
 
-            PolylineOptions options = new PolylineOptions().width(10).color(Color.BLUE).geodesic(true);
-            for (int z = 0; z < polyLineLocations.size(); z++) {
-                //LatLng point = polyLineLocations.get(z);
-                //options.add(point);
+            PolylineOptions optionsForCurrentToBusHalt = new PolylineOptions()
+                    .width(12)
+                    .color(Color.RED)
+                    .geodesic(true)
+                    .add(latLng, pinPoint);
+            mMap.addPolyline(optionsForCurrentToBusHalt);
+
+            PolylineOptions options = new PolylineOptions().width(12).color(Color.WHITE).geodesic(true);
+            for (int z = 0; z < busLocations.size(); z++) {
+                LatLng point = pointsInLatAndLang.get(z);
+                options.add(point);
             }
 
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, DEFAULT_ZOOM));
             Polyline busRoute = mMap.addPolyline(options);
         }catch (Exception e) {
             e.printStackTrace();
         }
-
     }
-
     public float getDistanceInMiles(LatLng routePoint, LatLng destination) {
         double lat1 = routePoint.latitude/ 1e6;
         double lng1 = routePoint.longitude/ 1e6;
@@ -667,6 +696,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         fireDatabaseReference.addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+
 
 
             }

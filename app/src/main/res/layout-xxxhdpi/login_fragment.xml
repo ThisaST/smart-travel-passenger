@@ -11,7 +11,7 @@
     <View
         android:id="@+id/rectangle"
         android:layout_width="435dp"
-        android:layout_height="455dp"
+        android:layout_height="322dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:background="@drawable/rectangle"
@@ -112,10 +112,10 @@
         android:elevation="6dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.528"
+        app:layout_constraintHorizontal_bias="0.557"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.945">
+        app:layout_constraintVertical_bias="0.956">
 
     </com.google.android.gms.common.SignInButton>
 
