@@ -45,6 +45,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
@@ -56,12 +57,21 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.mikepenz.materialdrawer.AccountHeader;
+import com.mikepenz.materialdrawer.AccountHeaderBuilder;
+import com.mikepenz.materialdrawer.Drawer;
+import com.mikepenz.materialdrawer.DrawerBuilder;
+import com.mikepenz.materialdrawer.model.ProfileDrawerItem;
+import com.mikepenz.materialdrawer.model.interfaces.IProfile;
+import com.squareup.picasso.Picasso;
 import com.uok.se.thisara.smart.smarttravelpassenger.entities.BusLocation;
+import com.uok.se.thisara.smart.smarttravelpassenger.entities.BusLocationModel;
 import com.uok.se.thisara.smart.smarttravelpassenger.ui.main.MainFragment;
 import com.uok.se.thisara.smart.smarttravelpassenger.viewmodel.MainViewModel;
 
@@ -108,6 +118,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private LatLng[] mLikelyPlaceLatLngs;
 
     private static final int REQUEST_CODE_AUTOCOMPLETE = 1;
+    private static final int PERMISSIONS_REQUEST = 1;
 
     private HashMap<String, Marker> mMarkers = new HashMap<>();
 
@@ -123,6 +134,69 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_activity);
 
+        //checking whether GPS is enabled
+        boolean gpsEnabled = GPSConfig.isGPSEnabled(this);
+
+        int permission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION);
+        if (!(permission == PackageManager.PERMISSION_GRANTED)) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                    PERMISSIONS_REQUEST);
+        }
+
+        Intent intent = getIntent();
+        String loggedInUsing = intent.getStringExtra("loggedInThrough");
+        AccountHeader headerResult;
+
+        if (loggedInUsing.equals("googleSignIn")) {
+
+            headerResult = new AccountHeaderBuilder()
+                    .withActivity(this)
+                    .withHeaderBackground(R.drawable.header)
+                    .addProfiles(
+                            new ProfileDrawerItem()
+                                    .withName(FirebaseAuth.getInstance().getCurrentUser().getDisplayName())
+                                    .withEmail(FirebaseAuth.getInstance().getCurrentUser().getEmail())
+                                    .withIcon(FirebaseAuth.getInstance().getCurrentUser().getPhotoUrl())
+                    )
+                    .withOnAccountHeaderListener(new AccountHeader.OnAccountHeaderListener() {
+                        @Override
+                        public boolean onProfileChanged(View view, IProfile profile, boolean currentProfile) {
+                            return false;
+                        }
+                    })
+                    .build();
+        }else {
+
+             headerResult = new AccountHeaderBuilder()
+                    .withActivity(this)
+                    .withHeaderBackground(R.drawable.header)
+                    .addProfiles(
+                            new ProfileDrawerItem()
+                                    .withName("Thisara Pramuditha")
+                                    .withEmail("thisa030@gmail.com")
+                                    .withIcon(R.drawable.profile)
+                    )
+                    .withOnAccountHeaderListener(new AccountHeader.OnAccountHeaderListener() {
+                        @Override
+                        public boolean onProfileChanged(View view, IProfile profile, boolean currentProfile) {
+                            return false;
+                        }
+                    })
+                    .build();
+        }
+        //creating navigation drawer
+
+        Drawer navigationDrawer = new DrawerBuilder()
+                .withActivity(this)
+                .withDisplayBelowStatusBar(true)
+                .withTranslucentStatusBar(false)
+                .withActionBarDrawerToggle(true)
+                .withTranslucentNavigationBar(true)
+                .withAccountHeader(headerResult)
+                .build();
+
+
         // Retrieve location and camera position from saved instance state.
         if (savedInstanceState != null) {
             mLastKnownLocation = savedInstanceState.getParcelable(KEY_LOCATION);
@@ -132,7 +206,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         //create the viewmodel
         mainViewModel = ViewModelProviders.of(this).get(MainViewModel.class);
 
-        mainViewModel.getDataFromFirebase("pinpoints/138/location");
+        mainViewModel.getDataFromFirebase("Routes/138/locations");
         // Construct a GeoDataClient.
         mGeoDataClient = Places.getGeoDataClient(this);
 
@@ -620,7 +694,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         Log.d("List size", Integer.toString(busLocationList.size()));
 
-        /*getBusLocationData("locations/0001");*/
+        showBusLocations("locations/route/138");
 
         return busLocationList;
     }
@@ -660,9 +734,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             for (int z = 0; z < busLocations.size(); z++) {
                 LatLng point = pointsInLatAndLang.get(z);
                 options.add(point);
+                if (point == pinPoint) {
+                    break;
+                }
             }
 
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, DEFAULT_ZOOM));
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 12));
             Polyline busRoute = mMap.addPolyline(options);
         }catch (Exception e) {
             e.printStackTrace();
@@ -691,19 +768,21 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void getBusLocationData(String busRoute) {
 
-        DatabaseReference fireDatabaseReference = FirebaseDatabase.getInstance().getReference();
+        DatabaseReference fireDatabaseReference = FirebaseDatabase.getInstance().getReference(busRoute);
 
         fireDatabaseReference.addChildEventListener(new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String s) {
 
-
-
+                //setMarker(dataSnapshot);
+                setBusLocationMArker(dataSnapshot);
             }
 
             @Override
             public void onChildChanged(DataSnapshot dataSnapshot, String s) {
 
+                //setMarker(dataSnapshot);
+                setBusLocationMArker(dataSnapshot);
             }
 
             @Override
@@ -728,13 +807,54 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // its value in mMarkers, which contains all the markers
         // for locations received, so that we can build the
         // boundaries required to show them all on the map at once
+
+        List<BusLocationModel> busLocationsForRoute = new ArrayList<>();
+        String key = dataSnapshot.getKey();
+        //HashMap<String, Object> value = (HashMap<String, Object>) dataSnapshot.getValue();
+
+        for (DataSnapshot locationData : dataSnapshot.getChildren()) {
+
+            BusLocationModel busLocation = locationData.getValue(BusLocationModel.class);
+            busLocationsForRoute.add(busLocation);
+        }
+
+        double lat = 0;
+        double lng = 0;
+        for (BusLocationModel location: busLocationsForRoute) {
+
+            lat = location.getLatitude();
+            lng = location.getLongitude();
+
+            createMarkerInMap(lat, lng, "Bus", "", R.drawable.bus_view_left_front);
+        }
+
+
+        LatLng location = new LatLng(lat, lng);
+        if (!mMarkers.containsKey(key)) {
+            mMarkers.put(key, mMap.addMarker(new MarkerOptions().title(key).position(location)));
+        } else {
+            mMarkers.get(key).setPosition(location);
+        }
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        for (Marker marker : mMarkers.values()) {
+            builder.include(marker.getPosition());
+        }
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 300));
+    }
+
+    public void setBusLocationMArker(DataSnapshot dataSnapshot) {
+
         String key = dataSnapshot.getKey();
         HashMap<String, Object> value = (HashMap<String, Object>) dataSnapshot.getValue();
         double lat = Double.parseDouble(value.get("latitude").toString());
         double lng = Double.parseDouble(value.get("longitude").toString());
+        BitmapDescriptor icon = BitmapDescriptorFactory.fromResource(R.drawable.bus_view_left_front);
+
+
+
         LatLng location = new LatLng(lat, lng);
         if (!mMarkers.containsKey(key)) {
-            mMarkers.put(key, mMap.addMarker(new MarkerOptions().title(key).position(location)));
+            mMarkers.put(key, mMap.addMarker(new MarkerOptions().title(key).position(location).icon(icon)));
         } else {
             mMarkers.get(key).setPosition(location);
         }

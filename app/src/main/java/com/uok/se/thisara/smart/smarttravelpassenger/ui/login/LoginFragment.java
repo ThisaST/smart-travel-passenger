@@ -11,6 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.Toast;
 
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
@@ -21,6 +22,19 @@ import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.SignInButton;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
 import com.twitter.sdk.android.core.Twitter;
 import com.uok.se.thisara.smart.smarttravelpassenger.LoginActivity;
 import com.uok.se.thisara.smart.smarttravelpassenger.MainActivity;
@@ -43,6 +57,12 @@ public class LoginFragment extends Fragment {
     private AccessToken mAccessToken;
     private static final String TAG = "fblogin";
 
+    private GoogleSignInOptions mGoogleSignInOptions;
+    private GoogleSignInClient mGoogleSignInClient;
+    private final int RC_SIGN_IN = 1;
+    private FirebaseAuth mAuth;
+    private String userType;
+
     public static LoginFragment newInstance() {
         return new LoginFragment();
     }
@@ -61,6 +81,26 @@ public class LoginFragment extends Fragment {
         FacebookSdk.sdkInitialize(getApplicationContext());
 
         //twitter initialization
+
+        //google sign in
+        mGoogleSignInOptions = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.web_client_id))
+                .requestEmail()
+                .requestProfile()
+                .build();
+
+        mAuth = FirebaseAuth.getInstance();
+
+        mGoogleSignInClient = GoogleSignIn.getClient(getApplicationContext(), mGoogleSignInOptions);
+
+        SignInButton signInButton = getActivity().findViewById(R.id.googleLogin);
+
+        signInButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                signIn();
+            }
+        });
 
         Twitter.initialize(getApplicationContext());
 
@@ -122,6 +162,7 @@ public class LoginFragment extends Fragment {
 
 
                 Intent intent = new Intent(getActivity(), MainActivity.class);
+                intent.putExtra("loggedInThrough", "twitterSignIn");
                 startActivity(intent);
             }
         });
@@ -153,10 +194,58 @@ public class LoginFragment extends Fragment {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-
         Fragment fragment = getFragmentManager().findFragmentById(R.id.login);
         if (fragment != null) {
             callbackManager.onActivityResult(requestCode, resultCode, data);
         }
+
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+
+            try {
+
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                firebaseAuthWithGoogle(account);
+
+            }catch (ApiException e) {
+
+            }
+        }
+    }
+
+    private void signIn() {
+        Intent signInIntent = mGoogleSignInClient.getSignInIntent();
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+
+    private void firebaseAuthWithGoogle(GoogleSignInAccount account) {
+
+        Log.d("sign-in", "firebaseAuthWithGoogle:" + account.getId());
+        AuthCredential credential = GoogleAuthProvider.getCredential(account.getIdToken(), null);
+
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(getActivity(), new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            updateUI(user);
+
+                        }else {
+
+                            Log.w("failed", "signInWithCredential:failure", task.getException());
+                            Toast.makeText(getActivity(), "Error", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+    }
+
+    private void updateUI(FirebaseUser currentUser) {
+
+        //Toast.makeText(getActivity(), "Success" + currentUser.getDisplayName(), Toast.LENGTH_SHORT).show();
+        Intent mainViewIntent = new Intent(getActivity(), MainActivity.class);
+        mainViewIntent.putExtra("loggedInThrough", "googleSignIn");
+        startActivity(mainViewIntent);
     }
 }

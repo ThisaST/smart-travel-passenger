@@ -19,6 +19,7 @@ import com.uok.se.thisara.smart.smarttravelpassenger.entities.PinnedLocations;
 import com.uok.se.thisara.smart.smarttravelpassenger.remote.BusStopLocationsClient;
 import com.uok.se.thisara.smart.smarttravelpassenger.remote.RemoteConfig;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -95,7 +96,6 @@ public class MainViewModel extends ViewModel {
 
         List<BusLocation> busLocationList = new ArrayList<>();
         for (DataSnapshot locationData : dataSnapshot.getChildren()) {
-
 
             BusLocation busLocation = locationData.getValue(BusLocation.class);
             busLocationList.add(busLocation);

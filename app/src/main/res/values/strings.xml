@@ -19,6 +19,7 @@
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
 
+    <string name="web_client_id">103202259552-2j1jt5r1kfqs6u1aufmtu5dtgefi6ecr.apps.googleusercontent.com</string>
     <!--Twitter keys-->
 
 </resources>
